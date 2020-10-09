@@ -10,6 +10,7 @@ package project;
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
+import java.text.DecimalFormat;
 import java.util.*;
 import java.util.List;
 import java.util.function.Function;
@@ -30,25 +31,14 @@ public class CMIS242PRJ4BryanD {
     Status(int value) {
       this.value = value;
     } // end constructor
-    // getter for numeric value
-    public int getValue() {
-      return value;
-    } // end getter
-
   } // end Status enum
 
   /**
    * Status Changeable interface
    */
-  public interface StatusChangeable {
-    // TODO: the statusChangeable method has a bounded generic type parameter
-    //  that is an enumerated type
-    // TODO: the changeStatus abstract method has a generic type parameter
+  public interface StatusChangeable<T> {
     // abstract change status method
     Status changeStatus(Status status);
-//    // abstract statusChangeable
-//    Status statusChangeable(Status status);
-
   } // end StatusChangeable interface
 
   /**
@@ -94,8 +84,6 @@ public class CMIS242PRJ4BryanD {
           this.status = Status.SOLD;
           break;
       } // end switch statement
-
-      // TODO: change the current status to FOR_SALE
     } // end Property constructor
 
 
@@ -213,11 +201,87 @@ public class CMIS242PRJ4BryanD {
       add(clearBtn, 4);
       add(exitBtn, 5);
       // event listeners
-      processBtn.addActionListener(e -> {
+      processBtn.addActionListener(
+          e -> {
+            // get user input
+            String parcelIDInput = logic.userInputPanel.parcelIDTextField.getText().trim();
+            String addressInput = logic.userInputPanel.addressTextField.getText().trim();
+            String bedroomsInput = logic.userInputPanel.bedroomTextField.getText().trim();
+            String squareFootageInput =
+                logic.userInputPanel.squareFootageTextField.getText().trim();
+            String priceInput = logic.userInputPanel.priceTextField.getText().trim();
+            String processType = processComboBox.getSelectedItem().toString();
+            String statusType = changeStatusComboBox.getSelectedItem().toString();
+            // convert to processable data
+            try {
+              // if parcel ID is empty throw error
+              if (parcelIDInput.equalsIgnoreCase("")) {
+                throw new Exception("Parcel ID cannot be empty");
+              } // end if statement
+              int parcelIDValue =
+                  checkForErrors(parcelIDInput, "Parcel ID value is not an integer");
+              if (addressInput.equalsIgnoreCase("") &&
+                  bedroomsInput.equalsIgnoreCase("") &&
+                  squareFootageInput.equalsIgnoreCase("") &&
+                  priceInput.equalsIgnoreCase("")) {
+                  // find the property by the ID itself
+                Property property = logic.database.get(parcelIDValue);
+                processData(property, processType);
+                // add to transactional array and show pop up
+//                logic.transactional.add(property);
 
-      }); // end process button event listener
+              } else {
+                if (addressInput.equalsIgnoreCase("")) {
+                  throw new Exception("Address cannot be empty");
+                } // end if statement
+                // process the data
+                int bedroomValue = checkForErrors(bedroomsInput, "Bedroom value is not an integer");
+                int squareFootageValue =
+                        checkForErrors(squareFootageInput, "Square Footage is not an integer");
+                int priceValue = checkForErrors(priceInput, "Price is not an integer");
+                // create object for comparison and adding to transaction array
+                Property currentProcess = new Property(parcelIDValue,
+                        addressInput, bedroomValue, squareFootageValue, priceValue, convertStatus(statusType));
+                processData(currentProcess, processType); // process the data
+              } // end if/else statement
+            } catch (Exception err) {
+              JOptionPane.showMessageDialog(
+                  logic, err.getMessage(), "Error Processing Request", JOptionPane.ERROR_MESSAGE);
+            } // end try/catch
+          }); // end process button event listener
       changeStatusBtn.addActionListener(e -> {
-
+        // get user input
+        String parcelIDInput = logic.userInputPanel.parcelIDTextField.getText().trim();
+        String addressInput = logic.userInputPanel.addressTextField.getText().trim();
+        String bedroomsInput = logic.userInputPanel.bedroomTextField.getText().trim();
+        String squareFootageInput =
+                logic.userInputPanel.squareFootageTextField.getText().trim();
+        String priceInput = logic.userInputPanel.priceTextField.getText().trim();
+        String processType = processComboBox.getSelectedItem().toString();
+        String statusType = changeStatusComboBox.getSelectedItem().toString();
+        // convert to processable data
+        try {
+          // if parcel ID is empty throw error
+          if (parcelIDInput.equalsIgnoreCase("")) {
+            throw new Exception("Parcel ID cannot be empty");
+          } // end if statement
+          if (addressInput.equalsIgnoreCase("")) {
+            throw new Exception("Address cannot be empty");
+          } // end if statement
+          int parcelIDValue =
+                  checkForErrors(parcelIDInput, "Parcel ID value is not an integer");
+          int bedroomValue = checkForErrors(bedroomsInput, "Bedroom value is not an integer");
+          int squareFootageValue =
+                  checkForErrors(squareFootageInput, "Square Footage is not an integer");
+          int priceValue = checkForErrors(priceInput, "Price is not an integer");
+          // create object for comparison and adding to transaction array
+          Property currentProcess = new Property(parcelIDValue,
+                  addressInput, bedroomValue, squareFootageValue, priceValue, convertStatus(statusType));
+          changeData(currentProcess, statusType);
+        } catch (Exception err) {
+          JOptionPane.showMessageDialog(
+                  logic, err.getMessage(), "Error Processing Request", JOptionPane.ERROR_MESSAGE);
+        } // end try/catch
       }); // end change status button event listener
       clearBtn.addActionListener(e -> resetFields()); // end clear button event listener
       exitBtn.addActionListener(e -> exitProgram()); // end exit button event listener
@@ -227,30 +291,160 @@ public class CMIS242PRJ4BryanD {
      * processes the data from within the
      * text fields and adds it to the HashMap
      */
-    private void processData() {
-      // TODO: Find process that displays a record in the HashMap
-      // TODO: Insert process that adds a new record to the HashMap
-      // TODO: Delete process that removed a record from the HashMap
-
+    private void processData(Property currentProcess, String processType) throws Exception {
+      if (currentProcess == null) {
+        throw new Exception("Parcel ID cannot be empty");
+      } else {
+        Function<String, String> checkProcess = k -> {
+          if (k.equalsIgnoreCase("find")) {
+            return "Record in Database";
+          } else {
+            return "Success Inserting";
+          } // end if/else statement
+        }; // end checkProcess function
+        Function<Property, String> formatMessage = f -> {
+          String startingText = checkProcess.apply(processType);
+          DecimalFormat priceFormat = new DecimalFormat("$###,###,###");
+          String message = String.format("%s\n%s\n%s\n%s Bedrooms\n%s sq ft\n%s\n%s",
+                  startingText,
+                  f.parcelID,
+                  f.address,
+                  f.numberOfBedrooms,
+                  f.squareFootage,
+                  priceFormat.format(f.price),
+                  f.status.toString());
+          return message;
+        }; // end formatMessage function
+        // check for which process type is happening
+        if (processType.equalsIgnoreCase("find")) {
+          // find process
+          Property matchingProperty = logic.database.get(currentProcess.parcelID);
+          if (matchingProperty != null) {
+            // add to transactional array and show pop up
+            logic.transactional.add(matchingProperty);
+            JOptionPane.showMessageDialog(logic,
+                    formatMessage.apply(matchingProperty),
+                    "FOUND: " + matchingProperty.address,
+                    JOptionPane.INFORMATION_MESSAGE);
+          } else {
+            throw new Exception("Could not locate Parcel ID");
+          } // end if/else statement
+        } else if (processType.equalsIgnoreCase("insert")) {
+          // insert process
+          Property matchingProperty = logic.database.get(currentProcess.parcelID);
+          if (currentProcess != null) {
+            if (matchingProperty == null) {
+              // add to transactional array and show pop up
+              logic.transactional.add(currentProcess);
+              logic.database.put(currentProcess.parcelID, currentProcess);
+              JOptionPane.showMessageDialog(logic,
+                      formatMessage.apply(currentProcess),
+                      "INSERTED: " + currentProcess.address,
+                      JOptionPane.INFORMATION_MESSAGE);
+            } else {
+              throw new Exception("Parcel ID exists");
+            } // end if/else statement
+          } else {
+            throw new Exception("Property is not complete");
+          } // end if/else statement
+        } else {
+          // delete process
+          Property matchingProperty = logic.database.get(currentProcess.parcelID);
+          if (currentProcess != null && matchingProperty != null) {
+            logic.transactional.add(currentProcess);
+            logic.database.remove(currentProcess.parcelID);
+            JOptionPane.showMessageDialog(logic,
+                    currentProcess.toString(),
+                    "DELETED: " + currentProcess.address,
+                    JOptionPane.INFORMATION_MESSAGE);
+          } else {
+            throw new Exception("Parcel ID does not exist");
+          } // end if/else statement
+        } // end if/else if/else statement
+      } // end if/else statement
     } // end processData method
 
     /**
      * changes the current listing based in the database
      */
-    private void changeData() {
-      // TODO: modifies the HashMap based on the appropriate enumerated type
+    private void changeData(Property currentProcess, String statusType) throws Exception {
+      Property matchingProperty = logic.database.get(currentProcess.parcelID);
+      // check for which status change is happening
+      if (statusType.equalsIgnoreCase("for_sale")) {
+        modifyStatus(currentProcess, matchingProperty, Status.FOR_SALE);
+      } else if (statusType.equalsIgnoreCase("under_contract")) {
+        // under contract change
+        modifyStatus(currentProcess, matchingProperty, Status.UNDER_CONTRACT);
+      } else {
+        // sold change
+        modifyStatus(currentProcess, matchingProperty, Status.SOLD);
+      } // end if/else if/else statement
     } // end changeData method
 
     /**
-     * checks for input errors from user
+     * modifies the status of a property by changing the status,
+     * throwing an exception if there is an error, and showing a
+     * JOptionsPane to the user
+     * @param currentProcess PROPERTY current property being processed
+     * @param matchingProperty PROPERTY property to be replaced
+     * @param status STATUS listing status to be changed
+     * @throws Exception
      */
-    private void checkForErrors() {
-      // TODO: process button clicked and nothing in id text field
-      // TODO: non integer in parcel id field
-      // TODO: non integer in bedrooms field
-      // TODO: non integer in square footage field
-      // TODO: non integer price field
+    private void modifyStatus(Property currentProcess, Property matchingProperty, Status status) throws Exception {
+      // for sale change
+      if (matchingProperty != null) {
+        matchingProperty.changeStatus(status); // change the status
+        logic.database.replace(currentProcess.parcelID, matchingProperty); // replace the property
+        logic.transactional.add(matchingProperty); // add to transactional array
+        JOptionPane.showMessageDialog(logic,
+                String.format("Updated Property:\n\n%s",
+                        matchingProperty.toString()),
+                "UPDATED: " + matchingProperty.address,
+                JOptionPane.INFORMATION_MESSAGE); // show dialog message
+      } else {
+        throw new Exception("Could not locate property");
+      } // end if/else statement
+    } // end modifyStatus method
+
+    /**
+     * Check for errors when parsing integers
+     * @param userInput STRING users input from the program
+     * @param message STRING message to display to user
+     * @return INT successfully parsed integer
+     */
+    private int checkForErrors(String userInput, String message) throws Exception {
+      int currentUserInput;
+      try {
+        currentUserInput = Integer.parseInt(userInput);
+      } catch (NumberFormatException e) {
+        throw new Exception(message);
+      } // end try/catch
+      return currentUserInput;
     } // end checkForErrors method
+
+    /**
+     * convert the string of status to an integer value to use
+     * in the construction of temporary property object
+     * @param status STRING string value of status combo box
+     * @return INT integer value of status enum
+     */
+    private int convertStatus(String status) {
+      int currentStatus = 0;
+
+      switch (status) {
+        case "FOR_SALE":
+          currentStatus = 0;
+          break;
+        case "UNDER_CONTRACT":
+          currentStatus = 1;
+          break;
+        case "SOLD":
+          currentStatus = 2;
+          break;
+      } // end switch statement
+
+      return currentStatus;
+    } // end convertStatus method
 
     /**
      * Reset the text fields and combo boxes
@@ -273,8 +467,23 @@ public class CMIS242PRJ4BryanD {
      * the program
      */
     private void exitProgram() {
-      // TODO: print the Transaction Array to the console
-      // TODO: print the modified HashMap to the console
+      List<Property> transactional = logic.transactional;
+      Map<Integer, Property> database = logic.database;
+
+      // print the transactional array to console
+      System.out.println("\nTRANSACTIONAL:");
+      for (Property listItem : transactional) {
+        System.out.println(listItem.toString());
+      } // end for loop
+
+      System.out.println("MODIFIED HASHMAP:");
+      // print the modified hashmap to console
+      for (Map.Entry<Integer, Property> mapItem : database.entrySet()) {
+        Property currentProperty = mapItem.getValue();
+
+        System.out.println(currentProperty.toString());
+      } // end for loop
+
       System.exit(0); // terminate the program
     } // end exitProgram method
 
@@ -286,17 +495,19 @@ public class CMIS242PRJ4BryanD {
     FlowLayout logicLayout = new FlowLayout(FlowLayout.CENTER);
     public File textFile;
     public Map<Integer, Property> database;
+    public List<Property> transactional;
     private int PREF_W = 400;
     private int PREF_H = 350;
 
     public ControllerLogic(File textFile) {
       this.textFile = textFile;
+      this.database = readFile();
+      this.transactional = new ArrayList<>();
       setLayout(logicLayout);
       setBackground(Color.LIGHT_GRAY);
       setPreferredSize(new Dimension(PREF_W, PREF_H));
       add(userInputPanel);
       add(buttonPanel);
-      this.database = readFile();
     } // end ControllerLogic constructor
 
     /**
@@ -330,14 +541,16 @@ public class CMIS242PRJ4BryanD {
           hashmap.put(currentID, currentListing);
         } // end while loop
       } catch (FileNotFoundException | InputMismatchException | NumberFormatException e) {
-        System.out.println("File Not Found: " + e.getMessage());
+        System.out.println("ERROR: " + e.getMessage());
       } finally{
-        System.out.println("run:");
+        System.out.println("RUN:");
         // print the hashmap data to the console
         for (Map.Entry<Integer, Property> mapItem : hashmap.entrySet()) {
           Property currentProperty = mapItem.getValue();
-
+          // print current item to console
           System.out.println(currentProperty.toString());
+          // change status to for sale
+          currentProperty.changeStatus(Status.FOR_SALE);
         } // end for loop
       } // end try/catch/finally
 
@@ -382,19 +595,6 @@ public class CMIS242PRJ4BryanD {
       add(logic);
     } // end addComponents method
 
-    // TODO: create static variable that defines database property records implemented as a HashMap
-    //  with Parcel ID field as the key and Property object as the value
-    // TODO: Use PRJ4Property.txt file for a basic set of data read into the HashMap of program
-    // TODO: Generate the GUI display with all elements displayed
-    // TODO: Transactional Array is declared and defined to hold each process during program run
-    // TODO: Upon program start, each record read into HashMap is displayed into IDE
-    //  output window using toString() method -- READ DATA
-    // TODO: During execution of of the program, each process transaction is assigned to transaction
-    //  array. At the end of the program, all transactions assigned are displayed in the IDE output
-    //  window using toString() method -- TRANSACTION DATA
-    // TODO: When the program ends, the data in the modified HashMap is displayed in IDE output
-    //  window using toString() method after the transactions are displayed -- MODIFIED DATA
-    // TODO: each of the three outputs have a tag describing the data displayed
   } // end Program Core class
 
   public static void main(String[] args) {
